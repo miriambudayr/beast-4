@@ -1,0 +1,114 @@
+<script src="simpleTest.js"></script>
+<script>
+
+(function () {
+  var libraryStorage = {};
+
+  function resetStorage() {
+    libraryStorage = {};
+  }
+
+  function librarySystem(libraryName, dependencies, callback) {
+    if (arguments.length > 1) {
+      if (!(libraryName in libraryStorage)) {
+        saveLibrary(libraryName, dependencies, callback);
+      } else {
+        throw new TypeError('A library has already been created with this name');
+      }
+    } else {
+      return retrieveLibrary(libraryName);
+    }
+  }
+
+  function saveLibrary(libraryName, dependencies, callback) {
+    libraryStorage[libraryName] = {
+      callback: callback,
+      dependencies: dependencies,
+      library: null
+    }
+  }
+
+  function retrieveLibrary(libraryName) {
+    var dependencies = [];
+    if (libraryStorage[libraryName]) {
+      if (libraryStorage[libraryName].dependencies.length > 0) {
+        dependencies = libraryStorage[libraryName].dependencies.map(function(dependency) {
+          return librarySystem(dependency);
+        })
+      }
+      if (libraryStorage[libraryName].library === null) {
+        libraryStorage[libraryName].library = libraryStorage[libraryName].callback.apply(null, dependencies);
+      }
+      return libraryStorage[libraryName].library;
+    } else {
+      throw new TypeError('The following library does not exist: ' + libraryName);
+    }
+  }
+
+  window.librarySystem = librarySystem;
+  window.resetStorage = resetStorage;
+
+}());
+
+tests({
+  'It should be able to create and retrieve a library.': function() {
+    librarySystem('testLibrary', [], function() {
+      return 'Test Library';
+    });
+
+    eq(librarySystem('testLibrary'), 'Test Library');
+  },
+  'It should be able to create and retrieve a library when provided library has dependencies.': function() {
+    librarySystem('clause2', [], function() {
+      return 'test all of your assumptions.';
+    });
+
+    librarySystem('clause1', ['clause2'], function(clause2) {
+      return 'When you program, ' + clause2;
+    });
+
+    eq(librarySystem('clause1'), 'When you program, test all of your assumptions.');
+  },
+  'It should be able to create libraries before their dependencies are created.': function() {
+
+    librarySystem('workBlurb', ['name', 'company'], function(name, company) {
+      return name + ' works at ' + company;
+    });
+
+    librarySystem('name', [], function() {
+      return 'Gordon';
+    });
+
+    librarySystem('company', [], function() {
+      return 'Watch and Code';
+    });
+
+    eq(librarySystem('workBlurb'), 'Gordon works at Watch and Code');
+  },
+  'The callback function for each library should only run once.': function() {
+    window.resetStorage();
+    var counter = 0;
+
+    librarySystem('name', [], function() {
+      counter++;
+      return 'Gordon';
+    });
+
+    librarySystem('company', [], function() {
+      counter++;
+      return 'Watch and Code';
+    });
+
+    //Retrieve library multiple times.
+    librarySystem('name');
+    librarySystem('name');
+    librarySystem('name');
+    librarySystem('company');
+    librarySystem('company');
+    librarySystem('company');
+
+    eq(counter, 2);
+  }
+});
+
+</script>
